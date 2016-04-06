@@ -1,0 +1,763 @@
+import java.util.ArrayList;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import android.app.Activity;
+import android.app.Dialog;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.database.Cursor;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.EditText;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
+import android.widget.ListView;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.example.datedasher.R;
+import com.loopj.android.http.AsyncHttpResponseHandler;
+import com.loopj.android.http.RequestParams;
+import com.pericent.dastdasher.Models.ContactModel;
+import com.pericent.dastdasher.Models.FeedModel;
+import com.pericent.dastdasher.Models.RequestModel;
+import com.pericent.datedasher.Common;
+import com.pericent.datedasher.HomeScreen;
+import com.pericent.datedasher.Interaction;
+import com.pericent.datedasher.common.RestHttpClient;
+import com.pericent.datedasher.common.RestHttpClient_;
+import com.pericent.datedasher.lazyloading.ImageLoader;
+
+public class Social extends Footer implements OnClickListener {
+
+	ListView list_pending_request, list_pending_reviews,goto_friends_list;
+
+	NewSocialPendingRequestAdapter pendingRequestAdapter;
+	ArrayList<RequestModel> arraylist;
+
+	private ProgressDialog progDialog;
+
+	RequestModel contact;
+	String type;
+
+	/*
+	 * FOR GOTO CONTACT
+	 */
+	HorizontalScrollView scrollbar_watermalon;
+	LinearLayout hide_ly;
+	LinearLayout linearlayout_watermalon;
+	ArrayList<ContactModel> arraywatermelon;
+	ImageLoader imageLoader;
+
+	ImageView feedicn, contacticn, pendingicn;
+
+	LinearLayout pending_layouts, goto_layouts;
+	
+	SocialFriendListShowAdapter socialFriendListShowAdapter;
+	private ArrayList<RequestModel> arraylist_friend;
+
+	
+	ImageView group_profile_img;
+	LinearLayout edit;
+	int goto_friend_position=0;
+	public ArrayList<RequestModel> arraylist_gotofriend_list;
+
+	LinearLayout newsfeed_layout;
+	ImageView edit_status_img;
+	TextView user_status_tv;
+	ListView list_newsfeed;
+	NewsFeedAdapters feedAdapters;
+	ArrayList<FeedModel> feedarraylist;
+	
+	public static int CONTACT_PICK_CODE=1011;
+	boolean flagforgotocontact=false;
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		setContentView(R.layout.activity_social);
+
+		/*
+		 * FOR NEWS FEEDS SECTION
+		 */
+		newsfeed_layout=(LinearLayout) findViewById(R.id.feedlayout);
+		edit_status_img=(ImageView) findViewById(R.id.edit_status);
+		user_status_tv=(TextView) findViewById(R.id.status_edittext);
+		edit_status_img.setOnClickListener(this);
+		list_newsfeed=(ListView) findViewById(R.id.list_newsfeed);
+		feedarraylist=new ArrayList<>();
+		feedAdapters=new NewsFeedAdapters(Social.this, feedarraylist);
+		
+		/*
+		 * FOR GOTO CONTACT
+		 */
+		
+		arraylist_gotofriend_list=new ArrayList<RequestModel>();
+		arraylist_friend=new ArrayList<RequestModel>();
+		scrollbar_watermalon = (HorizontalScrollView) findViewById(R.id.scrollbar_watermalon);
+		linearlayout_watermalon = (LinearLayout) findViewById(R.id.linearlayout_watermalon);
+		hide_ly = (LinearLayout) findViewById(R.id.hide_ly);
+
+		pending_layouts = (LinearLayout) findViewById(R.id.pending_layouts);
+		goto_layouts = (LinearLayout) findViewById(R.id.goto_ly);
+		
+
+		feedicn = (ImageView) findViewById(R.id.feedicn);
+		contacticn = (ImageView) findViewById(R.id.req_contacticn);
+		pendingicn = (ImageView) findViewById(R.id.req_pendingicn);
+
+		arraywatermelon = new ArrayList<ContactModel>();
+
+		feedicn.setOnClickListener(this);
+		//contacticn.setOnClickListener(this);
+		//pendingicn.setOnClickListener(this);
+
+	/*	try {
+			
+			String from=Common.getPreferences(Social.this, "from");
+			Toast.makeText(Social.this, from+"", Toast.LENGTH_SHORT).show();
+			if(from.equals("noti")){
+				onClick(pendingicn);
+			}else{
+				onClick(feedicn);	
+			}
+			Common.setPrefrences(getApplicationContext(), "from", "");
+		} catch (Exception e) {
+			Common.setPrefrences(getApplicationContext(), "from", "");
+			e.printStackTrace();
+			
+		}*/
+		
+		onClick(feedicn);
+		
+
+		list_pending_request = (ListView) findViewById(R.id.list_pending_request);
+		list_pending_reviews = (ListView) findViewById(R.id.list_pending_reviews);
+		goto_friends_list=(ListView) findViewById(R.id.goto_friends_list);
+		
+		setHeader(this);
+		profile.setVisibility(View.GONE);
+		social.setBackgroundResource(R.drawable.new_social_icon_txt);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,Common.FOOTER_HEIGHT,2.7f);
+        lp.setMargins(Common.FOOTER_MARGIN_,Common.FOOTER_MARGIN_ , 0, Common.FOOTER_MARGIN_);
+		social.setLayoutParams(lp);
+        
+		
+		 message.setBackgroundResource(R.drawable.new_message_icon);
+		 profile.setBackgroundResource(R.drawable.new_profile_icon);
+		 datedasher.setBackgroundResource(R.drawable.new_datedasher_icon);
+		 LinearLayout.LayoutParams other = new LinearLayout.LayoutParams(0,Common.FOOTER_HEIGHT,Common.FOOTER_WEIGHT);
+		 other.setMargins(Common.FOOTER_MARGIN,0, 0,0);
+		 other.gravity = Gravity.CENTER;
+		 //message.setLayoutParams(other);
+		 //profile.setLayoutParams(other);
+		// datedasher.setLayoutParams(other);
+		 menu.setLayoutParams(other);
+		
+		
+		//===================For Datedasher Left Hand Icon========
+		 LinearLayout.LayoutParams lp_ddIcon = new LinearLayout.LayoutParams(0, Common.FOOTER_HEIGHT,Common.FOOTER_WEIGHT);
+		 lp_ddIcon.setMargins(50, 0, 90, 0);
+		 lp_ddIcon.gravity = Gravity.CENTER;
+		 datedasher.setLayoutParams(lp_ddIcon);
+		
+		//===================For Message Left Hand Icon========
+		 LinearLayout.LayoutParams lp_msgIcon = new LinearLayout.LayoutParams(0, Common.FOOTER_HEIGHT,Common.FOOTER_WEIGHT);
+		 lp_msgIcon.setMargins(0, 0, 160, 0);
+		 lp_msgIcon.gravity = Gravity.CENTER;
+		 message.setLayoutParams(lp_ddIcon);
+		
+		
+		
+		 String screen = Common.getPreferences(Social.this, "switch");
+		
+		 if(screen.equals("friends")){
+
+			 onClick(contacticn);
+		 }
+		
+		 else if (screen.equals("request")) {
+			
+			 onClick(pendingicn);
+		}else
+		{
+			onClick(feedicn);
+		}
+		
+		
+		 hide_ly.setOnClickListener(new OnClickListener() {
+				
+				@Override
+				public void onClick(View v) {
+					try {
+						group_profile_img.setBackgroundResource(0);
+						edit.setVisibility(View.GONE);
+						hide_ly.setVisibility(View.GONE);
+						/*if(arraylist_friend.size()>0)
+							socialFriendListShowAdapter.setPicSelected(-1);*/
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+					
+					
+				}
+			});
+			
+			
+			 goto_friends_list.setOnItemClickListener(new OnItemClickListener() {
+
+				@Override
+				public void onItemClick(AdapterView<?> parent, View view,int position, long id) {
+					goto_friend_position=position;
+					
+					if(hide_ly.getVisibility()==View.VISIBLE || flagforgotocontact==true){
+						if(arraylist_friend.size()>0)
+							socialFriendListShowAdapter.setPicSelected(position);
+					}
+					else{
+						Toast.makeText(Social.this, "goto chat screen", Toast.LENGTH_SHORT).show();
+					}
+				}
+			});
+			
+			
+			
+			 for (int i = 0; i < 5; i++) {
+
+					imageLoader = new ImageLoader(Social.this);
+					LayoutInflater inflater = (LayoutInflater) Social.this.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+					View beni = inflater.inflate(R.layout.group_content_item, null);
+
+					final LinearLayout edit_in = (LinearLayout) beni.findViewById(R.id.edit_ly);
+					final ImageView group_profile_img_in = (ImageView) beni.findViewById(R.id.group_profile_img);
+
+					final ImageView delete = (ImageView) beni.findViewById(R.id.delete);
+					beni.findViewById(R.id.plus);
+
+					group_profile_img_in.setTag(i);
+					
+					linearlayout_watermalon.addView(beni);
+
+					group_profile_img_in.setImageResource(R.drawable.plus_group);
+
+				}
+	}
+	
+	public void getNewsFeedList() {
+			JSONObject jsob_obj = new JSONObject();
+			RequestParams param = new RequestParams();
+			try {
+				jsob_obj.put("userid", Common.getPreferences(Social.this, "userid"));
+				param.put("request", jsob_obj.toString());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			Log.i("all data", "" + jsob_obj.toString());
+			RestHttpClient.postParams("showfeeds", param, new ShowFeedHandler());
+
+		}
+
+		public class ShowFeedHandler extends AsyncHttpResponseHandler {
+
+			@Override
+			public void onStart() {
+				super.onStart();
+				showProgDialog();
+			}
+
+			@Override
+			public void onSuccess(String arg0) {
+				super.onSuccess(arg0);
+
+				Log.i("response feed", arg0);
+				if (arg0.length() > 0) {
+					try {
+						JSONObject json_obj = new JSONObject(arg0);
+						Boolean b = json_obj.optBoolean("result");
+						String msg = json_obj.getString("message");
+						if (b) {
+							// Toast.makeText(getApplicationContext(),
+							// "boolean true", Toast.LENGTH_SHORT).show();
+							JSONArray jsn_obj = json_obj.getJSONArray("data");
+							
+							feedarraylist.clear();
+							for (int i = 0; i < jsn_obj.length(); i++) {
+
+								JSONObject js = jsn_obj.optJSONObject(i);
+								FeedModel model = new FeedModel();
+								model.setId(js.optString("id"));
+								model.setUserid(js.optString("userid"));
+								model.setUser_img(js.optString("image"));
+								model.setStatus(js.optString("status"));
+								model.setMessage(js.optString("message"));
+								feedarraylist.add(model);
+							}
+							
+						}
+						
+						feedAdapters.notifyDataSetChanged();
+
+					} catch (JSONException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+
+			@Override
+			public void onFailure(Throwable arg0) {
+				super.onFailure(arg0);
+				Toast.makeText(Social.this, "Network error", Toast.LENGTH_SHORT)
+						.show();
+			}
+
+			@Override
+			public void onFinish() {
+				super.onFinish();
+				dismissProgDialog();
+				
+			}
+		}
+
+	private void getPendingRequest() {
+
+		JSONObject data = new JSONObject();
+		RequestParams params = new RequestParams();
+		try {
+
+			data.put("userid", Common.getPreferences(Social.this, "userid"));
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+
+		params.put("request", data.toString());
+		Log.i("pending request", "" + data.toString());
+		RestHttpClient_.postParams("pendingrequest", params,new PendingRequestHandler("pendingrequest"));
+
+	}
+
+	public void showProgDialog() {
+		if (progDialog == null) {
+			progDialog = new ProgressDialog(Social.this,ProgressDialog.THEME_TRADITIONAL);
+			progDialog.setCancelable(false);
+			progDialog.setMessage("Wait...");
+			progDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+			progDialog.setProgress(0);
+		}
+		if (!progDialog.isShowing()) {
+			progDialog.show();
+		}
+	}
+
+	public void dismissProgDialog() {
+		if (progDialog != null) {
+			if (progDialog.isShowing())
+				progDialog.dismiss();
+		}
+	}
+
+	@Override
+	public void onClick(View v) {
+		switch (v.getId()) {
+		case R.id.pending_accept:
+
+			contact = (RequestModel) v.getTag();
+			String notificationId = contact.getNoti_id();
+			Log.i("NoticationId", "a" + notificationId);
+			
+			// arraylist.remove(contact);
+			// pendingRequestAdapter.notifyDataSetChanged();
+			type = "accept";
+			
+			if(contact.getCode().equals("friend")){
+				acceptIni(notificationId);
+				Toast.makeText(Social.this, contact.getCode(), Toast.LENGTH_SHORT).show();
+			}else{
+				responsetorequest("accept", contact);
+				Toast.makeText(Social.this, contact.getCode(), Toast.LENGTH_SHORT).show();
+				
+			}
+			break;
+
+		case R.id.pending_reject:
+			contact = (RequestModel) v.getTag();
+			type = "reject";
+			String notificationId_ = contact.getNoti_id();
+			Log.i("NoticationId", "a" + notificationId_);
+			
+		
+			if(contact.getCode().equals("friend")){
+				
+				Toast.makeText(Social.this, contact.getCode(), Toast.LENGTH_SHORT).show();
+			}else{
+				responsetorequest("reject", contact);
+				Toast.makeText(Social.this, contact.getCode(), Toast.LENGTH_SHORT).show();
+				
+			}
+			break;
+
+		case R.id.pendinguserpic:
+			
+			contact = (RequestModel)v.getTag();
+			String email = contact.getEmail();
+			Log.i("emaill",""+email);
+			
+			Intent in = new Intent(Social.this,NewDasherProfile.class);
+			in.putExtra("email_dasher", email);
+			
+			startActivity(in);
+			
+			break;	
+			
+		case R.id.menu:
+			PopMenuCustom pop = new PopMenuCustom(Social.this);
+			pop.show();
+			break;
+		case R.id.chaticon:
+
+			Intent i = new Intent(Social.this, ChatControls.class);
+			startActivity(i);
+			finish();
+			break;
+		case R.id.logo1:
+			Intent home = new Intent(Social.this, HomeScreen.class);
+			startActivity(home);
+			finish();
+			break;
+
+		case R.id.profile:
+			Intent f = new Intent(Social.this, NewProfileScreen.class);
+			startActivity(f);
+			finish();
+			break;
+
+		case R.id.feedicn:
+			getNewsFeedList();
+			user_status_tv.setText(Common.getPreferences(Social.this, "status"));
+			pending_layouts.setVisibility(View.GONE);
+			goto_layouts.setVisibility(View.GONE);
+			newsfeed_layout.setVisibility(View.VISIBLE);
+			feedicn.setImageResource(R.drawable.new_feed_icn_select);
+			contacticn.setImageResource(R.drawable.new_contact_book_icn);
+			pendingicn.setImageResource(R.drawable.new_request_pending_icn);
+
+			break;
+		case R.id.req_contacticn:
+			feedicn.setImageResource(R.drawable.new_feed_icn);
+			contacticn.setImageResource(R.drawable.new_contact_book_select_icn);
+			pendingicn.setImageResource(R.drawable.new_request_pending_icn);
+			try {
+				
+				//showWaterLeonContacts();
+				
+				arraylist_gotofriend_list.clear();
+				arraylist_friend.clear();
+				showFriendList();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			newsfeed_layout.setVisibility(View.GONE);
+			pending_layouts.setVisibility(View.GONE);
+			goto_layouts.setVisibility(View.VISIBLE);
+			break;
+		case R.id.req_pendingicn:
+			newsfeed_layout.setVisibility(View.GONE);
+			feedicn.setImageResource(R.drawable.new_feed_icn);
+			contacticn.setImageResource(R.drawable.new_contact_book_icn);
+			pendingicn.setImageResource(R.drawable.new_request_pending_select_icn);
+			pending_layouts.setVisibility(View.VISIBLE);
+			goto_layouts.setVisibility(View.GONE);
+			getPendingRequest();
+			break;
+
+			/*
+			 * FOR NEWS FEED SECTION ONCLICK
+			 */
+		case R.id.edit_status:
+			showStatusUpdateDialog();
+			break;
+			
+		case R.id.addto_goto:
+			addFriendToGotoContact();
+		default:
+			break;
+		}
+	}
+	
+	private void showStatusUpdateDialog() {
+	
+		final Dialog d=new Dialog(Social.this);
+		d.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		d.setContentView(R.layout.activity_status_tab);
+		
+		
+		TextView update=(TextView) d.findViewById(R.id.yep_status);
+		TextView cancel=(TextView) d.findViewById(R.id.nope_status);
+		final EditText status_eddialog=(EditText) d.findViewById(R.id.status_ed);
+		
+		
+		cancel.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				d.dismiss();	
+			}
+		});
+		
+		update.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				String status=status_eddialog.getText().toString().trim();
+				if(status.length()>0){
+					updateStatus(status);
+					d.dismiss();
+				}
+				else
+					Toast.makeText(Social.this, "Enter Status",Toast.LENGTH_SHORT).show();
+			}
+		});
+		d.show();
+		
+	}
+	
+	private void updateStatus(String status) {
+		JSONObject data = new JSONObject();
+		RequestParams params = new RequestParams();
+		
+		try{
+			data.put("userid",Common.getPreferences(Social.this, "userid"));
+			data.put("status", status);
+		
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		params.put("request", data.toString());
+		Log.i("getalluser", params.toString());
+		RestHttpClient.postParams("setstatus", params, new UpdateStatusHandler(status));
+	}	
+	public class UpdateStatusHandler extends AsyncHttpResponseHandler{
+		
+		String status;
+		public UpdateStatusHandler(String status) {
+				this.status=status;
+		}
+		
+		@Override
+		public void onStart() {
+			// TODO Auto-generated method stub
+			super.onStart();
+			showProgDialog();
+		}
+		
+		@Override
+		public void onSuccess(String response) {
+			// TODO Auto-generated method stub
+			super.onSuccess(response);
+			//dismissProgDialog();
+		
+			try {
+				JSONObject data = new JSONObject(response);
+				String loginresponse = data.toString();
+				
+				boolean result = data.optBoolean("result");
+
+				String message = data.optString("message");
+				
+				if(result){
+					Common.setPrefrences(Social.this, "status", status);
+					Common.showToast(Social.this, message, Toast.LENGTH_SHORT);
+					user_status_tv.setText(status);
+				}
+				else{
+					Common.showToast(Social.this, message, Toast.LENGTH_SHORT);
+				}
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		@Override
+		public void onFailure(Throwable arg0) {
+			super.onFailure(arg0);
+		}
+		
+		@Override
+		public void onFinish() {
+			// TODO Auto-generated method stub
+			super.onFinish();
+			dismissProgDialog();
+			
+		}
+	}
+
+	private void responsetorequest(String response, RequestModel contact) {
+		// TODO Auto-generated method stub
+		JSONObject data = new JSONObject();
+		RequestParams params = new RequestParams();
+		String id = contact.getNoti_id();
+		try {
+
+			data.put("id", contact.getNoti_id());
+			data.put("type", response);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+
+		params.put("request", data.toString());
+		Log.i("pending request", "" + data.toString());
+		RestHttpClient_.postParams("history", params,new PendingRequestHandler("history", response, contact, id));
+	}
+
+	class PendingRequestHandler extends AsyncHttpResponseHandler {
+
+		boolean result;
+		String api;
+		String message;
+		RequestModel contact;
+		String response;
+		String id;
+
+		public PendingRequestHandler(String api) {
+			this.api = api;
+		}
+
+		public PendingRequestHandler(String api, RequestModel contact) {
+			// TODO Auto-generated constructor stub
+			this.api = api;
+			this.contact = contact;
+		}
+
+		public PendingRequestHandler(String api, String response,
+				RequestModel contact, String id) {
+			// TODO Auto-generated constructor stub
+			this.api = api;
+			this.contact = contact;
+			this.response = response;
+			this.id = id;
+		}
+
+		@Override
+		public void onStart() {
+			super.onStart();
+			showProgDialog();
+		}
+
+		@Override
+		public void onSuccess(String Response) {
+			// TODO Auto-generated method stub
+			super.onSuccess(Response);
+			Log.i("Response", "" + Response);
+			if (api.equals("pendingrequest")) {
+				try {
+					JSONObject data = new JSONObject(Response);
+					result = data.optBoolean("result");
+					JSONArray jsonarray = data.optJSONArray("data");
+
+					arraylist = new ArrayList<RequestModel>();
+					arraylist.clear();
+					if (result) {
+						if (jsonarray.length() != 0) {
+
+							for (int i = 0; i < jsonarray.length(); i++) {
+								RequestModel model = new RequestModel();
+								JSONObject obj1 = jsonarray.optJSONObject(i);
+								model.setName(obj1.optString("name"));
+								model.setUser_id(obj1.optString("user_id"));
+								model.setEmail(obj1.optString("email"));
+								model.setAge(obj1.optString("age"));
+								model.setGender(obj1.optString("gender"));
+								model.setFburl(obj1.optString("fburl"));
+								model.setGcmid(obj1.optString("gcmid"));
+								model.setStatus(obj1.optString("status"));
+								model.setLatitude(obj1.optString("latitude"));
+								model.setLongitude(obj1.optString("longitude"));
+								model.setDistacne(obj1.optString("distance"));
+								model.setType(obj1.optString("type"));
+								model.setIsBlocked(obj1.optString("isblocked"));
+								model.setCertification_level(obj1.optString("certification_level"));
+								model.setNoti_id(obj1.optString("notificationid"));
+								model.setCode(obj1.optString("code"));
+								arraylist.add(model);
+							}
+							pendingRequestAdapter = new NewSocialPendingRequestAdapter(Social.this, arraylist, Social.this);
+							list_pending_request.setAdapter(pendingRequestAdapter);
+						}
+
+					} else {
+
+						pendingRequestAdapter = new NewSocialPendingRequestAdapter(Social.this, arraylist, Social.this);
+						list_pending_request.setAdapter(pendingRequestAdapter);
+					}
+
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			} else if (api.equals("history")) {
+				try {
+					JSONObject data = new JSONObject(Response);
+					result = data.optBoolean("result");
+					message = data.optString("message");
+					arraylist.remove(contact);
+					pendingRequestAdapter.notifyDataSetChanged();
+					Common.showToast(Social.this, message, Toast.LENGTH_LONG);
+					if (type.equals("accept")) {
+						JSONObject obj = new JSONObject();
+						RequestParams params = new RequestParams();
+						try {
+							
+							obj.put("id", contact.getNoti_id());
+							
+						} catch (JSONException e) {
+							e.printStackTrace();
+						}
+						
+						params.put("request", obj.toString());
+						Log.i("MakeThread",""+obj.toString());
+						RestHttpClient.postParams("makethread", params, new MarkThreadHandler());
+						popUpScreen();
+					}
+
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+
+		}
+
+		@Override
+		public void onFailure(Throwable arg0) {
+			// TODO Auto-generated method stub
+			super.onFailure(arg0);
+			Toast.makeText(Social.this, "network error", Toast.LENGTH_SHORT).show();
+		}
+
+		@Override
+		public void onFinish() {
+			// TODO Auto-generated method stub
+			super.onFinish();
+			dismissProgDialog();
+			
+		}
+	}
